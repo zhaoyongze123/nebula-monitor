@@ -5,6 +5,7 @@ import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 import net.bytebuddy.implementation.bind.annotation.SuperCall;
 import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
+import com.nebula.common.MonitoringData;
 
 public class LogInterceptor {
     @RuntimeType
@@ -15,7 +16,15 @@ public class LogInterceptor {
             // 执行原来的方法
             return callable.call();
         } finally {
-            System.out.println("📊 方法 [" + method.getName() + "] 耗时: " + (System.currentTimeMillis() - start) + "ms");
+            long duration = System.currentTimeMillis() - start;
+            // 创建监控数据对象 (DTO)
+            MonitoringData data = new MonitoringData();
+            data.setMethodName(method.getName());
+            data.setDuration(duration);
+            data.setTimestamp(System.currentTimeMillis());
+            data.setServiceName("nebula-test-service"); // 暂时硬编码，后面再优化为动态获取
+
+            System.out.println("📊 [Agent] 收集到监控数据: " + data);
         }
     }
 }

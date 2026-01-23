@@ -23,8 +23,7 @@ public class NebulaAgent {
                         DynamicType.Builder<?> builder,
                         TypeDescription typeDescription,
                         ClassLoader classLoader,
-                        JavaModule module,
-                        ProtectionDomain protectionDomain) {
+                        JavaModule module) {
                     return builder.method(ElementMatchers.any())
                                   .intercept(MethodDelegation.to(LogInterceptor.class));
                 }

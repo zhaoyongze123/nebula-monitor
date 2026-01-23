@@ -29,6 +29,7 @@
     </scm>
 
     <modules>
+        <module>nebula-common</module>
         <module>nebula-agent</module>
         <module>nebula-server</module>
         <module>nebula-test</module>

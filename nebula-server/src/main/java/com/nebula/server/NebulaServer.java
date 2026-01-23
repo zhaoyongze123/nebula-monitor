@@ -18,7 +18,7 @@ public class NebulaServer {
     }
 
     public void start() throws Exception {
-        // 1. 创建两个线程组：Boss 负责接电话，Worker 负责干活
+        // 1. 创建两个线程组： Boss 线程负责快速接入，Worker 线程池负责非阻塞地处理采集到的耗时数据
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
@@ -28,7 +28,7 @@ public class NebulaServer {
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  protected void initChannel(SocketChannel ch) {
-                     // 2. 给传送带安装"翻译官"：ObjectDecoder 负责把字节流转回对象
+                     // 2. 给传送带安装"翻译官"：ObjectDecoder 负责把二进制字节流转回对象
                      ch.pipeline().addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
                      // 3. 安装"处理员"：这是我们自己写的逻辑类
                      ch.pipeline().addLast(new ServerHandler());
