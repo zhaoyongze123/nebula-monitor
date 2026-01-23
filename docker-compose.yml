@@ -32,13 +32,19 @@ services:
       retries: 5
 
   # Redis 可视化管理界面
-  redis-insight:
-    image: redis/redisinsight:latest
-    container_name: nebula-redis-insight
+  phpRedisAdmin:
+    image: erikdubbelboer/phpredisadmin:latest
+    container_name: nebula-redis-admin
+    environment:
+      - REDIS_1_HOST=redis
+      - REDIS_1_PORT=6379
+      - REDIS_1_NAME=Nebula-Redis
     ports:
-      - "8001:8001"
+      - "8001:80"
     networks:
       - nebula-net
+    depends_on:
+      - redis
 
   # ES 可视化管理界面 (Kibana)
   kibana:

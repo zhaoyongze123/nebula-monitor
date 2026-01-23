@@ -106,15 +106,15 @@ public class ServerHandler extends SimpleChannelInboundHandler<Object> {
             }
         }
         
-        // 无论 Redis 是否成功，都写入内存队列作为备份
-        // 这样即使 Redis 不可用，数据也不会丢失
-        try {
-            MonitoringDataQueue.add(data);
-            if (!redisSuccess) {
+        // 只有在 Redis 失败时，才写入内存队列作为备份
+        // 这样可以避免数据重复，同时保证数据不丢失
+        if (!redisSuccess) {
+            try {
+                MonitoringDataQueue.add(data);
                 System.out.println("✅ 数据已写入内存队列（Redis 失败自动 Fallback）");
+            } catch (Exception e) {
+                System.err.println("❌ 写入内存队列失败: " + e.getMessage());
             }
-        } catch (Exception e) {
-            System.err.println("❌ 写入内存队列失败: " + e.getMessage());
         }
     }
 
