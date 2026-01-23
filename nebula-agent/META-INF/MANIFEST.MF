@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Created-By: Maven JAR Plugin 3.4.2
+Build-Jdk-Spec: 17
+Implementation-Title: nebula-agent
+Implementation-Version: 0.0.1-SNAPSHOT
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
+Premain-Class: com.nebula.agent.NebulaAgent
+
