@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'Nebula Dashboards'
+    orgId: 1
+    folder: 'Nebula-Monitor'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

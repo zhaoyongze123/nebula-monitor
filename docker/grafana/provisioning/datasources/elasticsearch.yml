@@ -1,0 +1,12 @@
+apiVersion: 1
+
+datasources:
+  - name: Nebula-Elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    isDefault: true
+    jsonData:
+      index: "nebula_metrics"
+      timeField: "timestamp"
+      esVersion: "8.10.2"
