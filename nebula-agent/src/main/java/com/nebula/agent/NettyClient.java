@@ -35,9 +35,26 @@ public class NettyClient {
     }
 
     public static void send(MonitoringData data) {
-        if (channel != null && channel.isActive()) {
+        if (channel == null) {
+            System.err.println("❌ [NettyClient] Channel 为 null，未连接到服务端");
+            return;
+        }
+        
+        if (!channel.isActive()) {
+            System.err.println("❌ [NettyClient] Channel 已关闭，无法发送数据");
+            return;
+        }
+        
+        try {
             // writeAndFlush 会将数据推向网络通道
-            channel.writeAndFlush(data);
+            channel.writeAndFlush(data).addListener(future -> {
+                if (!future.isSuccess()) {
+                    System.err.println("❌ [NettyClient] 数据发送失败: " + future.cause().getMessage());
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("❌ [NettyClient] 发送数据异常: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

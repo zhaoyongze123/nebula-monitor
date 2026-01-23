@@ -39,7 +39,7 @@
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <netty.version>4.1.77.Final</netty.version>
+        <netty.version>4.2.9.Final</netty.version>
         <bytebuddy.version>1.12.10</bytebuddy.version>
         <lombok.version>1.18.24</lombok.version>
     </properties>
