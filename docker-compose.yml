@@ -60,6 +60,27 @@ services:
     depends_on:
       - elasticsearch
 
+  # Grafana 监控仪表盘 - 业界最流行的可视化平台
+  # 专用于实时指标展示、报警、大屏展示等场景
+  grafana:
+    image: grafana/grafana:latest
+    container_name: nebula-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123    # 初始管理员密码
+      - GF_SECURITY_ADMIN_USER=admin           # 初始管理员用户名
+      - http_proxy=                             # 禁用代理
+      - https_proxy=                            # 禁用代理
+      - HTTP_PROXY=                             # 禁用代理
+      - HTTPS_PROXY=                            # 禁用代理
+    ports:
+      - "3000:3000"                            # Grafana Web UI
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning  # 自动配置数据源和仪表盘
+    networks:
+      - nebula-net
+    depends_on:
+      - elasticsearch
+
 networks:
   nebula-net:
     driver: bridge
