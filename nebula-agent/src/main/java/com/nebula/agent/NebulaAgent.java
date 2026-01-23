@@ -14,6 +14,9 @@ public class NebulaAgent {
     // JVM 启动时会先调这个 premain 方法
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("🚀 Nebula Agent 已启动，准备拦截方法...");
+        
+        // 启动时自动建立连接
+        NettyClient.connect("127.0.0.1", 8888);
 
         new AgentBuilder.Default()
             .type(ElementMatchers.nameStartsWith("com.nebula.test"))

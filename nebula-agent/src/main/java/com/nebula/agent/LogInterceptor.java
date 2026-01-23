@@ -18,13 +18,16 @@ public class LogInterceptor {
         } finally {
             long duration = System.currentTimeMillis() - start;
             // 创建监控数据对象 (DTO)
-            MonitoringData data = new MonitoringData();
-            data.setMethodName(method.getName());
-            data.setDuration(duration);
-            data.setTimestamp(System.currentTimeMillis());
-            data.setServiceName("nebula-test-service"); // 暂时硬编码，后面再优化为动态获取
+            MonitoringData data = new MonitoringData(
+                method.getName(),
+                duration,
+                System.currentTimeMillis(),
+                "nebula-test-service"
+            );
 
             System.out.println("📊 [Agent] 收集到监控数据: " + data);
+            // 通过 Netty 客户端发送给监控服务端
+            NettyClient.send(data);
         }
     }
 }
