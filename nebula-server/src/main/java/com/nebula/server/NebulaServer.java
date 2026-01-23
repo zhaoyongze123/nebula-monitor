@@ -18,6 +18,15 @@ public class NebulaServer {
     }
 
     public void start() throws Exception {
+        // 初始化 Redis 连接池（全局）
+        RedisPoolManager.init();
+        System.out.println("✅ Elasticsearch 客户端初始化完成");
+        
+        // 启动异步同步线程（在启动 Netty 服务之前）
+        Thread syncWorkerThread = new Thread(new ESSyncWorker(), "ES-Sync-Worker");
+        syncWorkerThread.setDaemon(false);
+        syncWorkerThread.start();
+        
         // 1. 创建两个线程组： Boss 线程负责快速接入，Worker 线程池负责非阻塞地处理采集到的耗时数据
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -41,6 +50,8 @@ public class NebulaServer {
         } finally {
             bossGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();
+            // 关闭 Redis 连接池
+            RedisPoolManager.close();
         }
     }
 

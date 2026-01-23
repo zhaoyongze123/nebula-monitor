@@ -1,0 +1,59 @@
+services:
+  # Redis 容器：作为监控数据的高速缓冲区
+  redis:
+    image: redis:7.0
+    container_name: nebula-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker/redis/data:/data
+    networks:
+      - nebula-net
+    command: redis-server --appendonly yes
+
+  # Elasticsearch 容器：作为监控数据的最终持久化存储
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    container_name: nebula-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - ./docker/es/data:/usr/share/elasticsearch/data
+    networks:
+      - nebula-net
+    healthcheck:
+      test: curl -s http://localhost:9200 >/dev/null || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 可视化管理界面
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: nebula-redis-insight
+    ports:
+      - "8001:8001"
+    networks:
+      - nebula-net
+
+  # ES 可视化管理界面 (Kibana)
+  kibana:
+    image: kibana:8.10.2
+    container_name: nebula-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - I18N_LOCALE=zh-CN
+    ports:
+      - "5601:5601"
+    networks:
+      - nebula-net
+    depends_on:
+      - elasticsearch
+
+networks:
+  nebula-net:
+    driver: bridge
