@@ -15,8 +15,21 @@ public class NebulaAgent {
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("🚀 Nebula Agent 已启动，准备拦截方法...");
         
+        // 从环境变量读取 Server 地址，默认 127.0.0.1:8888（本机）
+        String serverHost = System.getenv("NEBULA_SERVER_HOST");
+        if (serverHost == null) {
+            serverHost = System.getProperty("nebula.server.host", "127.0.0.1");
+        }
+        
+        String serverPortStr = System.getenv("NEBULA_SERVER_PORT");
+        if (serverPortStr == null) {
+            serverPortStr = System.getProperty("nebula.server.port", "8888");
+        }
+        int serverPort = Integer.parseInt(serverPortStr);
+        
         // 启动时自动建立连接
-        NettyClient.connect("127.0.0.1", 8888);
+        NettyClient.connect(serverHost, serverPort);
+        System.out.println("📡 Agent 连接服务端: " + serverHost + ":" + serverPort);
 
         // 1. 拦截业务方法（com.nebula.test 包中的所有方法）
         new AgentBuilder.Default()
