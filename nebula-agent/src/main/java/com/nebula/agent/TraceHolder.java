@@ -65,4 +65,24 @@ public class TraceHolder {
     public static String getOrCreate() {
         return get();
     }
+
+    /**
+     * ✨ 新增：获取当前线程的 Trace ID（不自动生成）
+     * 用于跨线程传播时，从主线程获取 ID，然后传递给子线程
+     * 
+     * 和 get() 的区别：
+     * - get() - 如果没有 ID，自动生成一个新的
+     * - getCurrentTraceId() - 如果没有 ID，返回 null（不生成）
+     * 
+     * 使用场景（线程池）：
+     * String traceId = TraceHolder.getCurrentTraceId();  // 可能是 null
+     * threadPool.execute(() -> {
+     *     if (traceId != null) {
+     *         TraceHolder.set(traceId);  // 子线程继承
+     *     }
+     * });
+     */
+    public static String getCurrentTraceId() {
+        return TRACE_ID_CONTEXT.get();
+    }
 }

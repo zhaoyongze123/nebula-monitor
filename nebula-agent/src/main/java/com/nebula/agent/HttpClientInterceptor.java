@@ -30,7 +30,6 @@ import java.util.concurrent.Callable;
 public class HttpClientInterceptor {
     
     private static final String TRACE_HEADER_NAME = "X-Nebula-Trace-Id";
-    private static volatile boolean hasSetTraceIdForThisConnection = false;
     
     /**
      * 拦截 setRequestProperty 方法

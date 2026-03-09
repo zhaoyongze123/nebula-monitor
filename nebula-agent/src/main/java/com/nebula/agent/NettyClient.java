@@ -12,6 +12,7 @@ public class NettyClient {
     private static Channel channel;
     private static EventLoopGroup group;
 
+    @SuppressWarnings("deprecation")
     public static void connect(String host, int port) {
         group = new NioEventLoopGroup();
         Bootstrap b = new Bootstrap();
