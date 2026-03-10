@@ -23,6 +23,7 @@ public class MonitoringData implements Serializable {
     private long duration;     // 方法执行耗时 (ms)
     private long timestamp;    // 数据产生的时间戳
     private String serviceName; // 来源服务名称（比如 12306-order）
+    private boolean sampled = true; // 是否被采样通过（默认 true）
 
     public MonitoringData() {}
 
@@ -57,6 +58,9 @@ public class MonitoringData implements Serializable {
 
     public String getServiceName() { return serviceName; }
     public void setServiceName(String serviceName) { this.serviceName = serviceName; }
+    
+    public boolean isSampled() { return sampled; }
+    public void setSampled(boolean sampled) { this.sampled = sampled; }
 
     @Override
     public String toString() {
@@ -66,6 +70,7 @@ public class MonitoringData implements Serializable {
                 ", duration=" + duration +
                 ", timestamp=" + timestamp +
                 ", serviceName='" + serviceName + '\'' +
+                ", sampled=" + sampled +
                 '}';
     }
 }

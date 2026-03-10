@@ -1,5 +1,7 @@
 package com.nebula.server;
 
+import com.nebula.server.codec.BinaryMessageDecoder;
+import com.nebula.server.codec.BinaryMessageEncoder;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -27,6 +29,12 @@ public class NebulaServer {
         syncWorkerThread.setDaemon(false);
         syncWorkerThread.start();
         
+        // 【新增】启动监控阈值检查线程
+        ThresholdThread thresholdThread = new ThresholdThread();
+        Thread monitorThread = new Thread(thresholdThread, "Threshold-Monitor");
+        monitorThread.setDaemon(false);
+        monitorThread.start();
+        
         // 1. 创建两个线程组： Boss 线程负责快速接入，Worker 线程池负责非阻塞地处理采集到的耗时数据
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -37,9 +45,18 @@ public class NebulaServer {
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  protected void initChannel(SocketChannel ch) {
-                     // 2. 给传送带安装"翻译官"：ObjectDecoder 负责把二进制字节流转回对象
+                     // 支持新的二进制协议（自定义编解码器）
+                     ch.pipeline().addLast(new BinaryMessageDecoder());
+                     ch.pipeline().addLast(new BinaryMessageEncoder());
+                     
+                     // 向后兼容旧的 ObjectDecoder（用于处理未升级的 Agent）
+                     // 注意：需要在自定义编解码器之后添加
                      ch.pipeline().addLast(new ObjectDecoder(ClassResolvers.cacheDisabled(null)));
-                     // 3. 安装"处理员"：这是我们自己写的逻辑类
+                     
+                     // 处理 ACK 响应和其他控制消息
+                     ch.pipeline().addLast(new ControlCommandHandler());
+                     
+                     // 业务处理器
                      ch.pipeline().addLast(new ServerHandler());
                  }
              });

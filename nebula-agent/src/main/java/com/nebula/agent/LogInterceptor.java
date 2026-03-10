@@ -5,6 +5,7 @@ import net.bytebuddy.implementation.bind.annotation.RuntimeType;
 import net.bytebuddy.implementation.bind.annotation.SuperCall;
 import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ThreadLocalRandom;
 import com.nebula.common.MonitoringData;
 
 /**
@@ -33,14 +34,29 @@ public class LogInterceptor {
             // 获取当前线程的 Trace ID（如果不存在则自动生成）
             String traceId = TraceHolder.get();
             
+            // 获取应用名称，用于区分采样率
+            String appName = NebulaAgent.getApplicationName();
+            
+            // 【新增采样决策】获取该应用的采样率
+            float samplingRate = GlobalConfig.getSamplingRate(appName);
+            
+            // 【新增采样决策】根据采样率决定是否收集数据
+            if (ThreadLocalRandom.current().nextDouble() > samplingRate) {
+                // 命中降频逻辑，直接跳过数据采集和发送
+                return null;
+            }
+            
             // 创建监控数据对象，包含 traceId
             MonitoringData data = new MonitoringData(
-                traceId,  // ✨ 新增：全链路追踪 ID
+                traceId,  // ✨ 全链路追踪 ID
                 method.getName(),
                 duration,
                 System.currentTimeMillis(),
                 "nebula-test-service"
             );
+            
+            // 标记为已采样
+            data.setSampled(true);
 
             System.out.println("📊 [Agent] 收集到监控数据: " + data);
             

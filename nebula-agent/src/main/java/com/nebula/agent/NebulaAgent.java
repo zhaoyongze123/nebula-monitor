@@ -10,6 +10,49 @@ import net.bytebuddy.utility.JavaModule;
 import java.lang.instrument.Instrumentation;
 
 public class NebulaAgent {
+    // Agent 唯一标识（IP + PID）
+    private static final String AGENT_ID = generateAgentId();
+    
+    // 应用名称
+    private static volatile String applicationName = "unknown-app";
+    
+    /**
+     * 生成唯一的 Agent ID
+     */
+    private static String generateAgentId() {
+        try {
+            // 获取本机 IP
+            String ip = java.net.InetAddress.getLocalHost().getHostAddress();
+            // 获取进程 ID
+            String pid = java.lang.management.ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
+            return ip + "-" + pid;
+        } catch (Exception e) {
+            // Fallback: 使用 Random UUID
+            return "agent-" + java.util.UUID.randomUUID().toString();
+        }
+    }
+    
+    /**
+     * 获取 Agent ID
+     */
+    public static String getAgentId() {
+        return AGENT_ID;
+    }
+    
+    /**
+     * 获取应用名称
+     */
+    public static String getApplicationName() {
+        return applicationName;
+    }
+    
+    /**
+     * 设置应用名称
+     */
+    public static void setApplicationName(String name) {
+        applicationName = name;
+    }
+    
     // JVM 启动时会先调这个 premain 方法
     public static void premain(String agentArgs, Instrumentation inst) {
         System.out.println("🚀 Nebula Agent 已启动，准备拦截方法...");

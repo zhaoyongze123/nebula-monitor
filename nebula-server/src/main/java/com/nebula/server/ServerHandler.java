@@ -2,8 +2,15 @@ package com.nebula.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nebula.common.MonitoringData;
+import com.nebula.common.protocol.Message;
+import com.nebula.common.protocol.MessageType;
+import com.nebula.common.protocol.ControlCommand;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
+import io.netty.util.concurrent.GlobalEventExecutor;
 import redis.clients.jedis.Jedis;
 
 /**
@@ -22,25 +29,54 @@ import redis.clients.jedis.Jedis;
  */
 public class ServerHandler extends SimpleChannelInboundHandler<Object> {
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    
+    /**
+     * 全局 ChannelGroup - 维护所有连接中的 Agent Channel
+     * 支持广播向所有 Agent 发送控制命令
+     */
+    private static final ChannelGroup channels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
 
     /**
      * 当接收到客户端（Agent）的消息时触发
      */
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (msg instanceof MonitoringData) {
+        // 支持两种消息格式：新的 Message 协议和旧的 MonitoringData 对象
+        if (msg instanceof Message) {
+            Message message = (Message) msg;
+            MessageType type = message.getMessageType();
+            
+            if (type == MessageType.DATA) {
+                // 数据消息 - 解析为 MonitoringData
+                try {
+                    MonitoringData data = MAPPER.readValue(message.getBody(), MonitoringData.class);
+                    handleMonitoringData(data);
+                } catch (Exception e) {
+                    System.err.println("❌ 解析监控数据失败: " + e.getMessage());
+                }
+            }
+            // ACK 消息由 ControlCommandHandler 处理
+        } else if (msg instanceof MonitoringData) {
+            // 向后兼容旧的 MonitoringData 格式
             MonitoringData data = (MonitoringData) msg;
-            System.out.println("📨 服务端收到监控数据: " + data.getMethodName() + 
-                             " (耗时: " + data.getDuration() + "ms)");
-            
-            // 初始化 Redis 连接池
-            RedisPoolManager.init();
-            
-            // 异步写入 Redis 队列（非阻塞操作）
-            writeToRedis(data);
+            handleMonitoringData(data);
         } else {
             System.out.println("⚠️  收到未知类型的数据: " + msg.getClass().getName());
         }
+    }
+    
+    /**
+     * 处理监控数据
+     */
+    private void handleMonitoringData(MonitoringData data) {
+        System.out.println("📨 服务端收到监控数据: " + data.getMethodName() + 
+                         " (耗时: " + data.getDuration() + "ms)");
+        
+        // 初始化 Redis 连接池
+        RedisPoolManager.init();
+        
+        // 异步写入 Redis 队列（非阻塞操作）
+        writeToRedis(data);
     }
 
     /**
@@ -123,7 +159,10 @@ public class ServerHandler extends SimpleChannelInboundHandler<Object> {
      */
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("✅ Agent 已连接：" + ctx.channel().remoteAddress());
+        Channel ch = ctx.channel();
+        channels.add(ch);
+        System.out.println("✅ Agent 已连接：" + ch.remoteAddress() + 
+                         " (当前在线 Agent 数: " + channels.size() + ")");
     }
 
     /**
@@ -131,7 +170,10 @@ public class ServerHandler extends SimpleChannelInboundHandler<Object> {
      */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("❌ Agent 已断开：" + ctx.channel().remoteAddress());
+        Channel ch = ctx.channel();
+        channels.remove(ch);
+        System.out.println("❌ Agent 已断开：" + ch.remoteAddress() + 
+                         " (当前在线 Agent 数: " + channels.size() + ")");
     }
 
     /**
@@ -142,6 +184,28 @@ public class ServerHandler extends SimpleChannelInboundHandler<Object> {
         System.err.println("⚠️  异常信息：" + cause.getMessage());
         cause.printStackTrace();
         ctx.close();
+    }
+    
+    /**
+     * 广播控制命令给所有在线的 Agent
+     * @param command 控制命令
+     */
+    public static void broadcastCommand(ControlCommand command) {
+        try {
+            String body = MAPPER.writeValueAsString(command);
+            Message msg = new Message(MessageType.CONTROL, body);
+            channels.writeAndFlush(msg);
+            System.out.println("📤 广播命令: " + command + " 到 " + channels.size() + " 个 Agent");
+        } catch (Exception e) {
+            System.err.println("❌ 广播命令失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取当前在线的 Agent 数量
+     */
+    public static int getOnlineAgentCount() {
+        return channels.size();
     }
 }
 
