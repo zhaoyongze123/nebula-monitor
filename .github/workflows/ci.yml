@@ -31,8 +31,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build with Maven
-        run: mvn clean compile -DskipTests -X 2>&1 | tail -50
+      - name: Build with Maven (all modules)
+        run: mvn clean install -DskipTests -X 2>&1 | tail -100
 
       - name: Run Unit Tests
         run: mvn test -pl nebula-server -Dtest=DiagnosisPromptTest
