@@ -5,18 +5,25 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nebula.common.MonitoringData;
+import com.nebula.server.diagnosis.DiagnosisLogger;
+import com.nebula.server.diagnosis.DiagnosisTaskExecutor;
+import com.nebula.server.diagnosis.SlowTraceDetector;
+import com.nebula.server.diagnosis.TraceContextCollector;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Elasticsearch 同步工作线程
  * 负责从 Redis 队列中取出监控数据，批量写入 Elasticsearch
+ * 同时异步触发慢链路诊断任务
  */
 public class ESSyncWorker implements Runnable {
+    private static final Logger logger = Logger.getLogger(ESSyncWorker.class.getName());
     private static final int BATCH_SIZE = 50;  // 批量写入阈值
     private static final long IDLE_SLEEP_MS = 1000;  // 队列空时的休眠时间
     private static final long RETRY_SLEEP_MS = 5000;  // 连接失败时的重试间隔
@@ -106,6 +113,29 @@ public class ESSyncWorker implements Runnable {
                 
                 if (data != null) {
                     batch.add(data);
+                    
+                    // 🔍 【新增】异步诊断：检查是否需要触发 AI 诊断
+                    // 独立异步执行，不阻塞批处理流程
+                    if (SlowTraceDetector.shouldDiagnose(data)) {
+                        try {
+                            DiagnosisTaskExecutor.submitDiagnosisTask(data);
+                            DiagnosisLogger.logTaskSubmitted(
+                                    data.getTraceId(),
+                                    data.getServiceName(),
+                                    data.getMethodName(),
+                                    data.getDuration()
+                            );
+                            // 同时存储该链路的指标用于后续对比分析
+                            TraceContextCollector.storeTraceMetric(
+                                    data.getServiceName(),
+                                    data.getMethodName(),
+                                    data.getDuration()
+                            );
+                        } catch (Exception e) {
+                            logger.warning("Failed to submit diagnosis task: " + e.getMessage());
+                            DiagnosisLogger.logTaskRejected(data.getTraceId(), e.getMessage());
+                        }
+                    }
                 }
 
                 // 3. 批量写入策略：凑够 BATCH_SIZE 条，或者队列空了就写

@@ -2,6 +2,10 @@ package com.nebula.server;
 
 import com.nebula.server.codec.BinaryMessageDecoder;
 import com.nebula.server.codec.BinaryMessageEncoder;
+import com.nebula.server.diagnosis.DiagnosisConfig;
+import com.nebula.server.diagnosis.DiagnosisLogger;
+import com.nebula.server.diagnosis.DiagnosisTaskExecutor;
+import com.nebula.server.diagnosis.SlowTraceDetector;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -11,9 +15,11 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
+import java.util.logging.Logger;
 
 public class NebulaServer {
     private final int port;
+    private static final Logger logger = Logger.getLogger(NebulaServer.class.getName());
 
     public NebulaServer(int port) {
         this.port = port;
@@ -23,6 +29,26 @@ public class NebulaServer {
         // 初始化 Redis 连接池（全局）
         RedisPoolManager.init();
         System.out.println("✅ Elasticsearch 客户端初始化完成");
+        
+        // 【新增】初始化诊断模块
+        try {
+            logger.info("Initializing AI diagnosis module...");
+            DiagnosisConfig config = DiagnosisConfig.getInstance();
+            logger.info("DiagnosisConfig: " + config);
+            
+            // 检查 AI 配置是否有效
+            if (!SlowTraceDetector.isAiConfigValid()) {
+                logger.warning("AI diagnosis configuration is incomplete - diagnosis will be disabled");
+                DiagnosisLogger.logConfigurationIssue("AI API key or configuration missing");
+            } else {
+                // 初始化诊断任务执行器（线程池）
+                DiagnosisTaskExecutor.initialize();
+                logger.info("AI diagnosis module initialized successfully");
+            }
+        } catch (Exception e) {
+            logger.severe("Failed to initialize diagnosis module: " + e.getMessage());
+            // Continue startup anyway - diagnosis is optional
+        }
         
         // 启动异步同步线程（在启动 Netty 服务之前）
         Thread syncWorkerThread = new Thread(new ESSyncWorker(), "ES-Sync-Worker");
