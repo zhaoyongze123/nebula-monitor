@@ -34,5 +34,5 @@ jobs:
       - name: Build with Maven
         run: mvn clean compile -DskipTests -X 2>&1 | tail -50
 
-      - name: Run tests
-        run: mvn test -Dtest=DiagnosisPromptTest
+      - name: Run Unit Tests
+        run: mvn test -pl nebula-server -Dtest=DiagnosisPromptTest
