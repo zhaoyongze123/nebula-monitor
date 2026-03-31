@@ -9,6 +9,7 @@ import com.nebula.server.diagnosis.DiagnosisLogger;
 import com.nebula.server.diagnosis.DiagnosisTaskExecutor;
 import com.nebula.server.diagnosis.SlowTraceDetector;
 import com.nebula.server.diagnosis.TraceContextCollector;
+import com.nebula.server.es.ESSpanDocument;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -21,6 +22,11 @@ import java.util.logging.Logger;
  * Elasticsearch 同步工作线程
  * 负责从 Redis 队列中取出监控数据，批量写入 Elasticsearch
  * 同时异步触发慢链路诊断任务
+ * 
+ * 符合 ES_DATA_SCHEMA.md 规范：
+ * - 使用 ESSpanDocument 格式化文档
+ * - timestamp 使用 epoch_millis 格式
+ * - 支持 snake_case 和 camelCase 字段
  */
 public class ESSyncWorker implements Runnable {
     private static final Logger logger = Logger.getLogger(ESSyncWorker.class.getName());
@@ -31,10 +37,12 @@ public class ESSyncWorker implements Runnable {
     private JedisPool jedisPool;
     private final ElasticsearchClient esClient;
     private final ObjectMapper mapper;
+    private final String indexName;
 
     public ESSyncWorker() {
         this.esClient = ESClientConfig.getClient();
         this.mapper = new ObjectMapper();
+        this.indexName = ESClientConfig.getIndexName();
         this.jedisPool = initRedisPool();  // 延迟初始化，这样可以重试
     }
 
@@ -73,7 +81,7 @@ public class ESSyncWorker implements Runnable {
 
     @Override
     public void run() {
-        System.out.println("📦 ES 同步线程已启动...");
+        System.out.println("📦 ES 同步线程已启动 (index=" + indexName + ")...");
         
         // 等待 Redis 就绪
         while (jedisPool == null) {
@@ -161,16 +169,21 @@ public class ESSyncWorker implements Runnable {
 
     /**
      * 批量发送数据到 Elasticsearch
+     * 使用 ESSpanDocument 格式化文档，确保符合 ES_DATA_SCHEMA.md 规范
      */
     private void sendToES(List<MonitoringData> dataList) {
         try {
             BulkRequest.Builder br = new BulkRequest.Builder();
 
             for (MonitoringData data : dataList) {
+                // 转换为 ES 文档格式
+                ESSpanDocument esDoc = ESSpanDocument.fromMonitoringData(data);
+                
                 br.operations(op -> op
                     .index(idx -> idx
-                        .index("nebula_metrics")  // 索引名称
-                        .document(data)
+                        .index(indexName)  // 使用配置的索引名称
+                        .id(esDoc.getSpanId())  // 使用 span_id 作为文档 ID
+                        .document(esDoc)
                     )
                 );
             }
@@ -185,7 +198,7 @@ public class ESSyncWorker implements Runnable {
                     }
                 });
             } else {
-                System.out.println("✅ 成功同步 " + dataList.size() + " 条数据至 Elasticsearch");
+                System.out.println("✅ 成功同步 " + dataList.size() + " 条数据至 Elasticsearch (index=" + indexName + ")");
             }
         } catch (Exception e) {
             System.err.println("❌ 发送数据到 ES 失败: " + e.getMessage());
