@@ -23,6 +23,7 @@ public class BinaryMessageDecoder extends ByteToMessageDecoder {
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         // 检查是否有足够的字节读取头部
         if (in.readableBytes() < HEADER_SIZE) {
+            System.out.println("🔍 [BinaryMessageDecoder] 可读字节不足: " + in.readableBytes() + " < " + HEADER_SIZE);
             return;
         }
         
@@ -31,10 +32,14 @@ public class BinaryMessageDecoder extends ByteToMessageDecoder {
         
         // 读取 Magic Number (2 字节) - 但不消费
         short magic = in.getShort(in.readerIndex());
+        System.out.println("🔍 [BinaryMessageDecoder] Magic Number: 0x" + Integer.toHexString(magic & 0xFFFF) + 
+                         " (期望: 0x" + Integer.toHexString(MAGIC_NUMBER & 0xFFFF) + ")");
+        
         if (magic != MAGIC_NUMBER) {
             // 不是我们的协议格式，不处理，让后续解码器（ObjectDecoder）来处理
             // 这里直接返回，不消费任何字节
             // ByteToMessageDecoder 会自动传递给后续处理器
+            System.out.println("⏭️  [BinaryMessageDecoder] Magic不匹配，跳过给ObjectDecoder处理");
             return;
         }
         
@@ -62,5 +67,6 @@ public class BinaryMessageDecoder extends ByteToMessageDecoder {
         // 组装消息对象
         Message message = new Message(messageType, body);
         out.add(message);
+        System.out.println("✅ [BinaryMessageDecoder] 成功解码Message: type=" + messageType + ", bodyLen=" + bodyLength);
     }
 }

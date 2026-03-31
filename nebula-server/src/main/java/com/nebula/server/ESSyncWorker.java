@@ -35,6 +35,7 @@ public class ESSyncWorker implements Runnable {
     private static final long RETRY_SLEEP_MS = 5000;  // 连接失败时的重试间隔
 
     private JedisPool jedisPool;
+    private long lastRedisReconnectAttemptMs = 0L;
     private final ElasticsearchClient esClient;
     private final ObjectMapper mapper;
     private final String indexName;
@@ -99,6 +100,9 @@ public class ESSyncWorker implements Runnable {
 
         while (true) {
             try {
+                // 0. Redis 连接池断开后，周期性重连（避免永久降级到内存队列）
+                tryReconnectRedisPool();
+
                 // 1. 优先从 Redis 取数据（如果可用）
                 MonitoringData data = null;
                 if (jedisPool != null) {
@@ -110,7 +114,8 @@ public class ESSyncWorker implements Runnable {
                     } catch (Exception e) {
                         // Redis 失败，改用内存队列
                         System.err.println("⚠️  从 Redis 读取失败，使用内存队列: " + e.getMessage());
-                        jedisPool = null;  // 标记 Redis 为不可用
+                        safeCloseRedisPool();
+                        jedisPool = null;  // 标记 Redis 为不可用，等待后续自动重连
                     }
                 }
                 
@@ -163,6 +168,31 @@ public class ESSyncWorker implements Runnable {
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                 }
+            }
+        }
+    }
+
+    /**
+     * Redis 连接池自动重连（带退避，避免空转重试）
+     */
+    private void tryReconnectRedisPool() {
+        if (jedisPool != null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastRedisReconnectAttemptMs < RETRY_SLEEP_MS) {
+            return;
+        }
+        lastRedisReconnectAttemptMs = now;
+        System.out.println("🔄 尝试重连 Redis 连接池...");
+        jedisPool = initRedisPool();
+    }
+
+    private void safeCloseRedisPool() {
+        if (jedisPool != null) {
+            try {
+                jedisPool.close();
+            } catch (Exception ignored) {
             }
         }
     }

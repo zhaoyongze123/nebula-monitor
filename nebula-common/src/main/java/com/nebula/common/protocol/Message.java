@@ -1,12 +1,10 @@
 package com.nebula.common.protocol;
 
-import java.io.Serializable;
-
 /**
  * 通用消息基类
+ * 使用自定义二进制编解码器，不再需要Java序列化
  */
-public class Message implements Serializable {
-    private static final long serialVersionUID = 1L;
+public class Message {
     
     /**
      * 消息类型

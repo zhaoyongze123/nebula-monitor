@@ -41,10 +41,13 @@ public class ServerHandler extends SimpleChannelInboundHandler<Object> {
      */
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
+        System.out.println("🔍 [ServerHandler] 收到消息类型: " + msg.getClass().getName());
+        
         // 支持两种消息格式：新的 Message 协议和旧的 MonitoringData 对象
         if (msg instanceof Message) {
             Message message = (Message) msg;
             MessageType type = message.getMessageType();
+            System.out.println("📨 [ServerHandler] Message类型: " + type);
             
             if (type == MessageType.DATA) {
                 // 数据消息 - 解析为 MonitoringData
@@ -53,11 +56,13 @@ public class ServerHandler extends SimpleChannelInboundHandler<Object> {
                     handleMonitoringData(data);
                 } catch (Exception e) {
                     System.err.println("❌ 解析监控数据失败: " + e.getMessage());
+                    e.printStackTrace();
                 }
             }
             // ACK 消息由 ControlCommandHandler 处理
         } else if (msg instanceof MonitoringData) {
             // 向后兼容旧的 MonitoringData 格式
+            System.out.println("📨 [ServerHandler] 收到MonitoringData对象");
             MonitoringData data = (MonitoringData) msg;
             handleMonitoringData(data);
         } else {
