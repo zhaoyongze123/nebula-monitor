@@ -69,14 +69,16 @@ jobs:
         env:
           discovery.type: single-node
           xpack.security.enabled: false
-          ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+          ES_JAVA_OPTS: '-Xms1g -Xmx1g'
+          bootstrap.memory_lock: false
         ports:
           - 9200:9200
         options: >-
-          --health-cmd "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"'"
+          --health-cmd "curl -f http://localhost:9200/_cluster/health || exit 1"
           --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
+          --health-timeout 10s
+          --health-retries 30
+          --health-start-period 60s
       
       # Redis 服务
       redis:
